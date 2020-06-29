@@ -49,7 +49,7 @@ class _MyAppState extends State<MyApp> {
 
   Future<bool> preparePlayer() async {
     print('preparing player');
-    var res = await Audiostream.initialize();
+    var res = await Audiostream.initialize(44100);
     setState(() {
       playerReady = res;
     });

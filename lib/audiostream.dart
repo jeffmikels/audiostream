@@ -13,11 +13,12 @@ class Audiostream {
   }
 
   // initialize player
-  static Future<bool> initialize() async {
+  static Future<bool> initialize([int rate = 44100]) async {
     if (!closed) await close();
 
     try {
-      final bool result = await _channel.invokeMethod('initialize');
+      final bool result =
+          await _channel.invokeMethod('initialize', {'rate': rate});
       if (result) closed = false;
       return result;
     } on PlatformException catch (e) {
