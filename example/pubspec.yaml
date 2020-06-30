@@ -42,7 +42,8 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/sample.wav
-    - assets/sample.raw
+    - assets/sample-44100-s16le.raw
+    - assets/sample-48000-s16le.raw
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware.

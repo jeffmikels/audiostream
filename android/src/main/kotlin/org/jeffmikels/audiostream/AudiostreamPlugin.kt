@@ -22,8 +22,8 @@ public class AudiostreamPlugin: FlutterPlugin, MethodCallHandler {
   /// when the Flutter Engine is detached from the Activity
   private lateinit var channel : MethodChannel
   private lateinit var player : AudioTrack
-  private var minBufSize = 0
   private var rate = 44100
+  private var initialized = false
 
   override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
     channel = MethodChannel(flutterPluginBinding.binaryMessenger, "audiostream")
@@ -58,19 +58,41 @@ public class AudiostreamPlugin: FlutterPlugin, MethodCallHandler {
   }
 
   override fun onDetachedFromEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
+    closePlayer()
     channel.setMethodCallHandler(null)
   }
 
   private fun doInitialize(@NonNull call: MethodCall, @NonNull result: Result) {
+    var bufferSize = 0
+
     if (call.hasArgument("rate")) {
-      val rate_ = call.argument<Int>("rate")
-      if (rate_ is Int)
-        rate = rate_
+      val givenRate = call.argument<Int>("rate")
+      if (givenRate is Int) {
+        rate = givenRate
+        println("AUDIO TRACK RATE: $rate")
+      }
+
     }
-    minBufSize = AudioTrack.getMinBufferSize(rate,
+    if (call.hasArgument("bufferBytes")) {
+      val givenBuffer = call.argument<Int>("bufferBytes")
+      if (givenBuffer is Int) {
+        bufferSize = givenBuffer
+        println("AUDIO TRACK BUFFER: $bufferSize")
+      }
+    }
+
+
+    val minBufSize = AudioTrack.getMinBufferSize(rate,
             AudioFormat.CHANNEL_OUT_STEREO,
             AudioFormat.ENCODING_PCM_16BIT
     )
+    val maxBufSize = rate * 2 * 2 * 10 // 10 second max buffer
+
+    if (bufferSize < minBufSize) bufferSize = minBufSize
+    if (bufferSize > maxBufSize) bufferSize = maxBufSize
+
+    closePlayer() // releases existing player
+
 
     player = AudioTrack.Builder()
             .setAudioAttributes(AudioAttributes.Builder()
@@ -83,30 +105,44 @@ public class AudiostreamPlugin: FlutterPlugin, MethodCallHandler {
                     .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
                     .build())
             .setTransferMode(AudioTrack.MODE_STREAM)
-            .setBufferSizeInBytes(minBufSize)
+            .setBufferSizeInBytes(bufferSize)
             .build()
 
+
     // start player for streaming
+    initialized = true
     result.success( true )
   }
 
+  private fun closePlayer() {
+    if (initialized) {
+      player.flush()
+      player.release()
+    }
+  }
+
   private fun doClose(@NonNull result: Result) {
-    player.flush()
-    player.release()
+    closePlayer()
     result.success( true )
   }
 
   private fun doWrite(@NonNull audioData:Any, @NonNull result: Result) {
-    if (audioData is ByteArray){
+    if (!initialized){
+      result.error("NOT INITIALIZED", "You must call initialize first", "")
+    } else if (audioData is ByteArray){
       var offset = 0;
+      println("starting player")
       player.play()
+      println("writing to audio buffer")
       while (audioData.lastIndex > offset) {
         offset += player.write(audioData, offset, audioData.size - offset, AudioTrack.WRITE_NON_BLOCKING)
       }
-      println("playback finished")
+      println("$offset bytes written to buffer, returning")
       result.success( true )
     } else {
       result.error("MISMATCH", "audioData is not a ByteArray", "")
     }
   }
+
+
 }

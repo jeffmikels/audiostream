@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -17,14 +18,25 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   String _platformVersion = 'Unknown';
   int change = 0;
+  int sampleRate = 48000;
+  String note = '';
 
   bool playerReady = false;
+
+  Uint8List data;
 
   @override
   void initState() {
     super.initState();
     initPlatformState();
     preparePlayer();
+  }
+
+  void e(String s) {
+    print(s);
+    setState(() {
+      note = s;
+    });
   }
 
   // Platform messages are asynchronous, so we initialize in an async method.
@@ -49,7 +61,15 @@ class _MyAppState extends State<MyApp> {
 
   Future<bool> preparePlayer() async {
     print('preparing player');
-    var res = await Audiostream.initialize(44100);
+    e('initializing player to $sampleRate');
+    var res = await Audiostream.initialize(
+      rate: sampleRate,
+      largeBuffer: true,
+    );
+
+    data = (await rootBundle.load('assets/sample-$sampleRate-s16le.raw'))
+        .buffer
+        .asUint8List();
     setState(() {
       playerReady = res;
     });
@@ -58,21 +78,18 @@ class _MyAppState extends State<MyApp> {
 
   Future<bool> play() async {
     var res;
-    var data =
-        (await rootBundle.load('assets/sample.raw')).buffer.asUint8List();
-    print('sending audio data');
-    var frames = data.lengthInBytes / (441000);
-    for (var i = 0; i < frames; i++) {
-      var start = i * 441000;
-      var towrite = data.sublist(start, start + 441000);
-      print(towrite.lengthInBytes);
-      // res = await Audiostream.write(towrite);
-      // print(res);
-      Audiostream.write(towrite);
-      setState(() {
-        change += 1;
-      });
-    }
+    e('sending audio data');
+    e('calling with await');
+    res = await Audiostream.write(data);
+    e('here we are!');
+    e('here we are again');
+    // var frames = data.lengthInBytes ~/ sampleRate;
+    // for (var i = 0; i < frames; i++) {
+    //   var start = i * sampleRate;
+    //   var towrite = data.sublist(start, start + sampleRate);
+    //   e('sending packet $i, ${towrite.lengthInBytes} bytes');
+    //   await Audiostream.write(towrite);
+    // }
     return res;
   }
 
@@ -83,15 +100,24 @@ class _MyAppState extends State<MyApp> {
         appBar: AppBar(
           title: const Text('Plugin example app'),
         ),
-        body: Center(
-          child: RaisedButton(
-            child: Text('play - $change'),
-            onPressed: playerReady
-                ? () {
-                    play();
-                  }
-                : null,
-          ),
+        body: ListView(
+          padding: EdgeInsets.all(20),
+          children: <Widget>[
+            Text(
+              note,
+              style: TextStyle(fontSize: 20),
+            ),
+            Container(
+              child: RaisedButton(
+                child: Text('play - $change'),
+                onPressed: playerReady
+                    ? () {
+                        play();
+                      }
+                    : null,
+              ),
+            ),
+          ],
         ),
       ),
     );
