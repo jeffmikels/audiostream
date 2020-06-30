@@ -56,7 +56,7 @@ class Audiostream {
   /// write two channel 16 bit PCM audio to player
   /// using the sample rate specified during initialization
   static Future<bool> write(List<int> _data) async {
-    var data = Uint16List.fromList(_data).buffer.asUint8List();
+    var data = Int16List.fromList(_data).buffer.asUint8List();
 
     try {
       final bool result = await _channel.invokeMethod('write', data);
