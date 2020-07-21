@@ -4,6 +4,10 @@ import 'dart:typed_data';
 import 'package:flutter/services.dart';
 
 class Audiostream {
+  // to handle using as a stream
+  static StreamController<List<int>> consumer = StreamController();
+  static StreamSubscription _streamSubscription;
+
   static bool closed = true;
   static const MethodChannel _channel = const MethodChannel('audiostream');
 
@@ -20,8 +24,17 @@ class Audiostream {
   /// the maximum size for the buffer, but experiments have shown that
   /// buffers longer than 10 seconds can cause intitialization to fail
   /// set {largeBuffer} to true to automatically use a 10 second buffer
-  static Future<bool> initialize(
-      {int rate = 44100, int bufferBytes, bool largeBuffer = false}) async {
+  static Future<bool> initialize({
+    int rate = 44100,
+    int bufferBytes,
+    bool largeBuffer = false,
+  }) async {
+    if (_streamSubscription == null) {
+      _streamSubscription = consumer.stream.listen((data) {
+        print('audio data received');
+        write(data);
+      });
+    }
     if (!closed) await close();
 
     bufferBytes = bufferBytes ?? 0;
@@ -51,6 +64,11 @@ class Audiostream {
       print('PlatformException: ${e.message}');
       return false;
     }
+  }
+
+  static destroy() async {
+    _streamSubscription?.cancel();
+    consumer?.close();
   }
 
   /// write two channel 16 bit PCM audio to player
