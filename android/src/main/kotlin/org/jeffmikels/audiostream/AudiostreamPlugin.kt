@@ -23,6 +23,7 @@ public class AudiostreamPlugin: FlutterPlugin, MethodCallHandler {
   private lateinit var channel : MethodChannel
   private lateinit var player : AudioTrack
   private var rate = 44100
+  private var channels = 2
   private var initialized = false
 
   override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
@@ -71,8 +72,16 @@ public class AudiostreamPlugin: FlutterPlugin, MethodCallHandler {
         rate = givenRate
         println("AUDIO TRACK RATE: $rate")
       }
-
     }
+
+    if (call.hasArgument("channels")) {
+      val givenChannels = call.argument<Int>("channels")
+      if (givenChannels is Int) {
+        channels = givenChannels
+        println("AUDIO TRACK CHANNELS: $channels")
+      }
+    }
+
     if (call.hasArgument("bufferBytes")) {
       val givenBuffer = call.argument<Int>("bufferBytes")
       if (givenBuffer is Int) {
@@ -81,12 +90,12 @@ public class AudiostreamPlugin: FlutterPlugin, MethodCallHandler {
       }
     }
 
-
+    val channelConstant = if (channels == 1) AudioFormat.CHANNEL_OUT_MONO else AudioFormat.CHANNEL_OUT_STEREO
     val minBufSize = AudioTrack.getMinBufferSize(rate,
-            AudioFormat.CHANNEL_OUT_STEREO,
+            channelConstant,
             AudioFormat.ENCODING_PCM_16BIT
     )
-    val maxBufSize = rate * 2 * 2 * 10 // 10 second max buffer
+    val maxBufSize = rate * channels * 2 * 10 // 2 bytes is 16 bits & 10 second max buffer
 
     if (bufferSize < minBufSize) bufferSize = minBufSize
     if (bufferSize > maxBufSize) bufferSize = maxBufSize

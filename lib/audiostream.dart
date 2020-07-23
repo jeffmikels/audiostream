@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 
 class Audiostream {
   // to handle using as a stream
-  static StreamController<List<int>> consumer = StreamController();
+  static StreamController<Int16List> consumer = StreamController();
   static StreamSubscription _streamSubscription;
 
   static bool closed = true;
@@ -16,8 +16,8 @@ class Audiostream {
     return version;
   }
 
-  /// Initializes a 2 channel 16bit PCM Platform Audio Player
-  /// with the specified rate and buffer values.
+  /// Initializes a Platform Audio Player
+  /// with the specified rate, bits, channels and buffer values.
   ///
   /// bufferBytes refers to the amount of memory to allocate on the
   /// platform side for the audio buffer. Android doesn't document
@@ -26,25 +26,27 @@ class Audiostream {
   /// set {largeBuffer} to true to automatically use a 10 second buffer
   static Future<bool> initialize({
     int rate = 44100,
-    int bufferBytes,
+    int channels = 2,
+    int bufferSeconds = 0,
+    int sampleBits = 16,
     bool largeBuffer = false,
   }) async {
     if (_streamSubscription == null) {
       _streamSubscription = consumer.stream.listen((data) {
         print('audio data received');
-        write(data);
+        write(data.buffer);
       });
     }
     if (!closed) await close();
 
-    bufferBytes = bufferBytes ?? 0;
-    var maxBufferBytes = rate * 2 * 2 * 10;
+    var bufferBytes = rate * channels * (sampleBits ~/ 8) * bufferSeconds;
+    var maxBufferBytes = rate * channels * (sampleBits ~/ 8) * 10;
     if (largeBuffer || bufferBytes > maxBufferBytes)
       bufferBytes = maxBufferBytes;
 
     try {
-      final bool result = await _channel.invokeMethod(
-          'initialize', {'rate': rate, 'bufferBytes': bufferBytes ?? 0});
+      final bool result = await _channel.invokeMethod('initialize',
+          {'rate': rate, 'channels': channels, 'bufferBytes': bufferBytes});
       if (result) closed = false;
       return result;
     } on PlatformException catch (e) {
@@ -71,13 +73,15 @@ class Audiostream {
     consumer?.close();
   }
 
-  /// write two channel 16 bit PCM audio to player
+  /// send raw bytes to the platform audiostream
   /// using the sample rate specified during initialization
-  static Future<bool> write(List<int> _data) async {
-    var data = Int16List.fromList(_data).buffer.asUint8List();
+  static Future<bool> write(ByteBuffer _bytes) async {
+    // var data = Int16List.fromList(_data).buffer.asUint8List();
+    Uint8List bytes = _bytes.asUint8List();
 
     try {
-      final bool result = await _channel.invokeMethod('write', data);
+      // write expects a ByteArray (Uint8List) of 16 bit PCM data
+      final bool result = await _channel.invokeMethod('write', bytes);
       return result;
     } on PlatformException catch (e) {
       print('PlatformException: ${e.message}');

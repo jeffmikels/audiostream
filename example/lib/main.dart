@@ -80,7 +80,7 @@ class _MyAppState extends State<MyApp> {
     var res;
     e('sending audio data');
     e('calling with await');
-    res = await Audiostream.write(data);
+    res = await Audiostream.write(data.buffer);
     e('here we are!');
     e('here we are again');
     // var frames = data.lengthInBytes ~/ sampleRate;
