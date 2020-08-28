@@ -70,7 +70,6 @@ public class AudiostreamPlugin: FlutterPlugin, MethodCallHandler {
       val givenRate = call.argument<Int>("rate")
       if (givenRate is Int) {
         rate = givenRate
-        println("AUDIO TRACK RATE: $rate")
       }
     }
 
@@ -78,7 +77,6 @@ public class AudiostreamPlugin: FlutterPlugin, MethodCallHandler {
       val givenChannels = call.argument<Int>("channels")
       if (givenChannels is Int) {
         channels = givenChannels
-        println("AUDIO TRACK CHANNELS: $channels")
       }
     }
 
@@ -86,7 +84,6 @@ public class AudiostreamPlugin: FlutterPlugin, MethodCallHandler {
       val givenBuffer = call.argument<Int>("bufferBytes")
       if (givenBuffer is Int) {
         bufferSize = givenBuffer
-        println("AUDIO TRACK BUFFER: $bufferSize")
       }
     }
 
@@ -96,13 +93,16 @@ public class AudiostreamPlugin: FlutterPlugin, MethodCallHandler {
             AudioFormat.ENCODING_PCM_16BIT
     )
     val maxBufSize = rate * channels * 2 * 10 // 2 bytes is 16 bits & 10 second max buffer
-
     if (bufferSize < minBufSize) bufferSize = minBufSize
     if (bufferSize > maxBufSize) bufferSize = maxBufSize
 
-    closePlayer() // releases existing player
+    closePlayer() // releases existing player if it exists
 
 
+    println("AUDIO TRACK RATE: $rate")
+    println("AUDIO TRACK ENCODING: PCM_16BIT")
+    println("AUDIO TRACK CHANNELS: $channels")
+    println("AUDIO TRACK BUFFER: $bufferSize")
     player = AudioTrack.Builder()
             .setAudioAttributes(AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -111,7 +111,7 @@ public class AudiostreamPlugin: FlutterPlugin, MethodCallHandler {
             .setAudioFormat(AudioFormat.Builder()
                     .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
                     .setSampleRate(rate)
-                    .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+                    .setChannelMask(channelConstant)
                     .build())
             .setTransferMode(AudioTrack.MODE_STREAM)
             .setBufferSizeInBytes(bufferSize)
@@ -140,13 +140,13 @@ public class AudiostreamPlugin: FlutterPlugin, MethodCallHandler {
       result.error("NOT INITIALIZED", "You must call initialize first", "")
     } else if (audioData is ByteArray){
       var offset = 0;
-      println("starting player")
+      // println("starting player")
       player.play()
-      println("writing to audio buffer")
+      // println("writing to audio buffer")
       while (audioData.lastIndex > offset) {
         offset += player.write(audioData, offset, audioData.size - offset, AudioTrack.WRITE_NON_BLOCKING)
       }
-      println("$offset bytes written to buffer, returning")
+      // println("$offset bytes written to buffer, returning")
       result.success( true )
     } else {
       result.error("MISMATCH", "audioData is not a ByteArray", "")

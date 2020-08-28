@@ -22,8 +22,9 @@ class _MyAppState extends State<MyApp> {
   String note = '';
 
   bool playerReady = false;
+  AudioStream audioStream;
 
-  Uint8List data;
+  Int16List samples;
 
   @override
   void initState() {
@@ -44,7 +45,7 @@ class _MyAppState extends State<MyApp> {
     String platformVersion;
     // Platform messages may fail, so we use a try/catch PlatformException.
     try {
-      platformVersion = await Audiostream.platformVersion;
+      platformVersion = await AudioStreamMixer.platformVersion;
     } on PlatformException {
       platformVersion = 'Failed to get platform version.';
     }
@@ -59,30 +60,32 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
-  Future<bool> preparePlayer() async {
+  Future<void> preparePlayer() async {
     print('preparing player');
     e('initializing player to $sampleRate');
-    var res = await Audiostream.initialize(
+    await AudioStreamMixer.initialize(
       rate: sampleRate,
-      largeBuffer: true,
+      largeBuffer: false,
     );
 
-    data = (await rootBundle.load('assets/sample-$sampleRate-s16le.raw'))
+    samples = (await rootBundle.load('assets/sample-$sampleRate-s16le.raw'))
         .buffer
-        .asUint8List();
+        .asInt16List();
     setState(() {
-      playerReady = res;
+      playerReady = AudioStreamMixer.initialized;
     });
-    return res;
   }
 
-  Future<bool> play() async {
-    var res;
+  void play() async {
+    // AudioStreamMixer.write(samples.buffer.asUint8List());
+    var as1 = AudioStream(volume: .2);
+    var as2 = AudioStream(volume: .7);
     e('sending audio data');
-    e('calling with await');
-    res = await Audiostream.write(data.buffer);
+    as1.mix(samples, delayMixdown: true);
+    as2.mix([...List<int>(48000 * 3), ...samples]);
     e('here we are!');
-    e('here we are again');
+    as1.destroy();
+    as2.destroy();
     // var frames = data.lengthInBytes ~/ sampleRate;
     // for (var i = 0; i < frames; i++) {
     //   var start = i * sampleRate;
@@ -90,7 +93,6 @@ class _MyAppState extends State<MyApp> {
     //   e('sending packet $i, ${towrite.lengthInBytes} bytes');
     //   await Audiostream.write(towrite);
     // }
-    return res;
   }
 
   @override

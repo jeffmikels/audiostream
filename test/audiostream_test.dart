@@ -18,6 +18,6 @@ void main() {
   });
 
   test('getPlatformVersion', () async {
-    expect(await Audiostream.platformVersion, '42');
+    expect(await AudioStreamMixer.platformVersion, '42');
   });
 }
