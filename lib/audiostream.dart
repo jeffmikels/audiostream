@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:sound_stream/sound_stream.dart';
+// import 'package:sound_stream/sound_stream.dart';
 
 import 'package:flutter/services.dart';
 
@@ -18,10 +18,11 @@ class AudioStreamMixer {
   static bool initialized = false;
   static bool closed = true;
 
-  static PlayerStream _player = PlayerStream();
-  static RecorderStream _recorder = RecorderStream();
+  // static PlayerStream _player = PlayerStream();
+  // static RecorderStream _recorder = RecorderStream();
 
-  static const MethodChannel _channel = const MethodChannel('org.jeffmikels.audiostream');
+  static const MethodChannel _channel =
+      const MethodChannel('org.jeffmikels.audiostream');
   static Future<String> get platformVersion async {
     final String version = await _channel.invokeMethod('getPlatformVersion');
     return version;
@@ -51,9 +52,9 @@ class AudioStreamMixer {
     print('Buffer: ${bufferMillis}ms');
 
     // initialize the streamplayer player
-    await _player.initialize(sampleRate: sampleRate, channels: channels);
-    print('Initialized Sound Stream Plugin');
-    await _player.start();
+    // await _player.initialize(sampleRate: sampleRate, channels: channels);
+    // print('Initialized Sound Stream Plugin');
+    // await _player.start();
 
     // not necessary
     // if (Platform.isIOS && bufferMillis < 20) bufferMillis = 20;
@@ -75,7 +76,8 @@ class AudioStreamMixer {
     AudioStreamMixer.largeBuffer = largeBuffer;
 
     var maxBufferBytes = sampleRate * channels * (sampleBits ~/ 8) * 10;
-    if (largeBuffer || bufferBytes > maxBufferBytes) bufferBytes = maxBufferBytes;
+    if (largeBuffer || bufferBytes > maxBufferBytes)
+      bufferBytes = maxBufferBytes;
 
     print("Selected Buffer of $bufferBytes bytes");
 
@@ -98,7 +100,7 @@ class AudioStreamMixer {
 
   // close player
   static Future<bool> close() async {
-    _player.stop();
+    // _player.stop();
 
     print('closing media player');
     try {
@@ -132,7 +134,8 @@ class AudioStreamMixer {
         }
       }
       if (longestStreamSamples < bufferSamples) break;
-      print('mixing $longestStreamSamples samples each from ${streams.length} streams');
+      print(
+          'mixing $longestStreamSamples samples each from ${streams.length} streams');
 
       // mix samples based on the longest stream buffer
       for (var i = 0; i < longestStreamSamples; i++) {
