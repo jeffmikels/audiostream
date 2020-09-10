@@ -27,7 +27,7 @@ public class AudiostreamPlugin: FlutterPlugin, MethodCallHandler {
   private var initialized = false
 
   override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-    channel = MethodChannel(flutterPluginBinding.binaryMessenger, "audiostream")
+    channel = MethodChannel(flutterPluginBinding.binaryMessenger, "org.jeffmikels.audiostream")
     channel.setMethodCallHandler(this);
   }
 
@@ -43,8 +43,9 @@ public class AudiostreamPlugin: FlutterPlugin, MethodCallHandler {
   companion object {
     @JvmStatic
     fun registerWith(registrar: Registrar) {
-      val channel = MethodChannel(registrar.messenger(), "audiostream")
-      channel.setMethodCallHandler(AudiostreamPlugin())
+      val channel = MethodChannel(registrar.messenger(), "org.jeffmikels.audiostream")
+      var instance = AudiostreamPlugin()
+      channel.setMethodCallHandler(instance)
     }
   }
 

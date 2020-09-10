@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
+
+import 'package:sound_stream/sound_stream.dart';
 
 import 'package:flutter/services.dart';
 
@@ -14,7 +17,11 @@ class AudioStreamMixer {
   static List<AudioStream> streams = [];
   static bool initialized = false;
   static bool closed = true;
-  static const MethodChannel _channel = const MethodChannel('audiostream');
+
+  static PlayerStream _player = PlayerStream();
+  static RecorderStream _recorder = RecorderStream();
+
+  static const MethodChannel _channel = const MethodChannel('org.jeffmikels.audiostream');
   static Future<String> get platformVersion async {
     final String version = await _channel.invokeMethod('getPlatformVersion');
     return version;
@@ -29,7 +36,7 @@ class AudioStreamMixer {
   /// buffers longer than 10 seconds can cause intitialization to fail
   /// set {largeBuffer} to true to automatically use a 10 second buffer
   static Future<bool> initialize({
-    int rate = 44100,
+    int sampleRate = 44100,
     int channels = 2,
     int bufferMillis = 0,
     int sampleBits = 16,
@@ -37,9 +44,23 @@ class AudioStreamMixer {
   }) async {
     if (!closed) await close();
 
-    // compute safe buffer value in bytes with a minimum buffer of 5ms
+    print('Initializing audiostreams with the following settings:');
+    print('Sample Rate: $sampleRate');
+    print('Channels: $channels');
+    print('Bits per Sample: $sampleBits');
+    print('Buffer: ${bufferMillis}ms');
+
+    // initialize the streamplayer player
+    await _player.initialize(sampleRate: sampleRate, channels: channels);
+    print('Initialized Sound Stream Plugin');
+    await _player.start();
+
+    // not necessary
+    // if (Platform.isIOS && bufferMillis < 20) bufferMillis = 20;
+
+    // compute safe buffer value in bytes
     while (true) {
-      var bSamples = rate * channels * sampleBits * (bufferMillis / 1000);
+      var bSamples = sampleRate * channels * (bufferMillis / 1000);
       int bSamplesInt = bSamples ~/ 1;
       if (bSamplesInt == bSamples) {
         AudioStreamMixer.bufferSamples = bSamplesInt;
@@ -48,20 +69,21 @@ class AudioStreamMixer {
       }
       bufferMillis += 1;
     }
-    AudioStreamMixer.sampleRate = rate;
+    AudioStreamMixer.sampleRate = sampleRate;
     AudioStreamMixer.sampleBits = sampleBits;
     AudioStreamMixer.channels = channels;
     AudioStreamMixer.largeBuffer = largeBuffer;
 
-    var maxBufferBytes = rate * channels * (sampleBits ~/ 8) * 10;
-    if (largeBuffer || bufferBytes > maxBufferBytes)
-      bufferBytes = maxBufferBytes;
+    var maxBufferBytes = sampleRate * channels * (sampleBits ~/ 8) * 10;
+    if (largeBuffer || bufferBytes > maxBufferBytes) bufferBytes = maxBufferBytes;
+
+    print("Selected Buffer of $bufferBytes bytes");
 
     try {
       final bool result = await _channel.invokeMethod('initialize', {
-        'rate': rate,
+        'rate': sampleRate,
         'channels': channels,
-        'bufferBytes': bufferBytes,
+        'bufferBytes': bufferBytes, // ignored on iOS
       });
       if (result) {
         closed = false;
@@ -76,6 +98,8 @@ class AudioStreamMixer {
 
   // close player
   static Future<bool> close() async {
+    _player.stop();
+
     print('closing media player');
     try {
       final bool result = await _channel.invokeMethod('close');
@@ -92,9 +116,9 @@ class AudioStreamMixer {
   static registerStream(AudioStream stream) => streams.add(stream);
   static removeStream(AudioStream stream) => streams.remove(stream);
 
-  static mixdown() {
+  static mixdown() async {
     if (_mixing) return;
-    print('mixdown');
+    // print('mixdown');
     _mixing = true;
 
     final List<int> mixedBuffer = [];
@@ -108,8 +132,7 @@ class AudioStreamMixer {
         }
       }
       if (longestStreamSamples < bufferSamples) break;
-      print(
-          'mixing $longestStreamSamples samples each from ${streams.length} streams');
+      print('mixing $longestStreamSamples samples each from ${streams.length} streams');
 
       // mix samples based on the longest stream buffer
       for (var i = 0; i < longestStreamSamples; i++) {
@@ -124,21 +147,23 @@ class AudioStreamMixer {
 
         mixedBuffer.add(mixedSample ~/ 1);
       }
-      write(Int16List.fromList(mixedBuffer).buffer.asUint8List());
+      await write(Int16List.fromList(mixedBuffer).buffer.asUint8List());
       mixedBuffer.clear();
 
       // truncate individual stream buffers and check for more data
       keepMixing = false;
       for (var stream in streams) {
-        if (stream.buffer.length <= longestStreamSamples)
+        if (stream.buffer.length <= longestStreamSamples) {
           stream.buffer.clear();
-        else {
+          print('mixing done');
+        } else {
           stream.buffer = stream.buffer.sublist(longestStreamSamples);
           keepMixing = true;
         }
       }
     }
     _mixing = false;
+    // _player.stop();
   }
 
   /// send raw bytes to the platform audiostream
@@ -146,7 +171,15 @@ class AudioStreamMixer {
   static Future<bool> write(Uint8List bytes) async {
     if (!initialized) throw AudioStreamNotInitialized();
     try {
-      final bool result = await _channel.invokeMethod('write', bytes);
+      bool result;
+
+      if (Platform.isAndroid) {
+        result = await _channel.invokeMethod('write', bytes);
+      } else if (Platform.isIOS) {
+        result = await _channel.invokeMethod('write', bytes);
+        // _player.writeChunk(bytes);
+        // result = true;
+      }
       print('wrote ${bytes.length} bytes');
       return result;
     } on PlatformException catch (e) {

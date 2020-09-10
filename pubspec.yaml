@@ -12,6 +12,10 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # sound_stream: ^0.2.0
+  sound_stream:
+    path: ../flutter-sound-stream/
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

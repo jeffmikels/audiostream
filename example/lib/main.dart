@@ -64,7 +64,7 @@ class _MyAppState extends State<MyApp> {
     print('preparing player');
     e('initializing player to $sampleRate');
     await AudioStreamMixer.initialize(
-      rate: sampleRate,
+      sampleRate: sampleRate,
       largeBuffer: false,
     );
 
