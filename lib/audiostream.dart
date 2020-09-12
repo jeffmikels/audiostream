@@ -134,8 +134,7 @@ class AudioStreamMixer {
         }
       }
       if (longestStreamSamples < bufferSamples) break;
-      print(
-          'mixing $longestStreamSamples samples each from ${streams.length} streams');
+      // print('mixing $longestStreamSamples samples each from ${streams.length} streams');
 
       // mix samples based on the longest stream buffer
       for (var i = 0; i < longestStreamSamples; i++) {
@@ -158,7 +157,7 @@ class AudioStreamMixer {
       for (var stream in streams) {
         if (stream.buffer.length <= longestStreamSamples) {
           stream.buffer.clear();
-          print('mixing done');
+          // print('mixing done');
         } else {
           stream.buffer = stream.buffer.sublist(longestStreamSamples);
           keepMixing = true;
@@ -183,7 +182,7 @@ class AudioStreamMixer {
         // _player.writeChunk(bytes);
         // result = true;
       }
-      print('wrote ${bytes.length} bytes');
+      // print('wrote ${bytes.length} bytes');
       return result;
     } on PlatformException catch (e) {
       print('PlatformException: ${e.message}');
