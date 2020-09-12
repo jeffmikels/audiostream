@@ -172,22 +172,23 @@ class AudioStreamMixer {
   /// bytes should be a Uint8List of 16 bit PCM data
   static Future<bool> write(Uint8List bytes) async {
     if (!initialized) throw AudioStreamNotInitialized();
+    var now = DateTime.now();
+    bool res = false;
     try {
-      bool result;
-
       if (Platform.isAndroid) {
-        result = await _channel.invokeMethod('write', bytes);
+        res = await _channel.invokeMethod('write', bytes);
       } else if (Platform.isIOS) {
-        result = await _channel.invokeMethod('write', bytes);
+        res = await _channel.invokeMethod('write', bytes);
         // _player.writeChunk(bytes);
         // result = true;
       }
-      // print('wrote ${bytes.length} bytes');
-      return result;
+      print('wrote ${bytes.length} bytes');
     } on PlatformException catch (e) {
       print('PlatformException: ${e.message}');
-      return false;
     }
+    var elapsed = DateTime.now().difference(now).inMilliseconds;
+    print('Audio Write took $elapsed ms.');
+    return res;
   }
 }
 
