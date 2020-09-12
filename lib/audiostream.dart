@@ -149,7 +149,10 @@ class AudioStreamMixer {
 
         mixedBuffer.add(mixedSample ~/ 1);
       }
-      await write(Int16List.fromList(mixedBuffer).buffer.asUint8List());
+
+      // don't bother waiting for this, just send the data
+      // to the native layer and move on!
+      write(Int16List.fromList(mixedBuffer).buffer.asUint8List());
       mixedBuffer.clear();
 
       // truncate individual stream buffers and check for more data
@@ -172,22 +175,23 @@ class AudioStreamMixer {
   /// bytes should be a Uint8List of 16 bit PCM data
   static Future<bool> write(Uint8List bytes) async {
     if (!initialized) throw AudioStreamNotInitialized();
-    var now = DateTime.now();
+    // var now = DateTime.now();
     bool res = false;
     try {
       if (Platform.isAndroid) {
-        res = await _channel.invokeMethod('write', bytes);
+        _channel.invokeMethod('write', bytes);
+        res = true;
       } else if (Platform.isIOS) {
         res = await _channel.invokeMethod('write', bytes);
         // _player.writeChunk(bytes);
         // result = true;
       }
-      print('wrote ${bytes.length} bytes');
+      // print('wrote ${bytes.length} bytes');
     } on PlatformException catch (e) {
       print('PlatformException: ${e.message}');
     }
-    var elapsed = DateTime.now().difference(now).inMilliseconds;
-    print('Audio Write took $elapsed ms.');
+    // var elapsed = DateTime.now().difference(now).inMilliseconds;
+    // print('Audio Write took $elapsed ms.');
     return res;
   }
 }
