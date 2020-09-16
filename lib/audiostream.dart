@@ -21,6 +21,7 @@ class AudioStreamMixer {
   static List<AudioStream> streams = [];
   static bool initialized = false;
   static bool closed = true;
+  static bool debug = false;
 
   // static PlayerStream _player = PlayerStream();
   // static RecorderStream _recorder = RecorderStream();
@@ -196,9 +197,9 @@ class AudioStreamMixer {
   /// send samples to the platform audiostream
   static Future<bool> write(List<int> samples) async {
     if (!initialized) throw AudioStreamNotInitialized();
-    // var now = DateTime.now();
+    var now = DateTime.now();
     bool res = false;
-    print('sending ${samples.length} samples to platform layer');
+    if (debug) print('sending ${samples.length} samples to platform layer');
     try {
       if (Platform.isAndroid) {
         _channel.invokeMethod('write', Int32List.fromList(samples));
@@ -212,8 +213,8 @@ class AudioStreamMixer {
     } on PlatformException catch (e) {
       print('PlatformException: ${e.message}');
     }
-    // var elapsed = DateTime.now().difference(now).inMilliseconds;
-    // print('Audio Write took $elapsed ms.');
+    var elapsed = DateTime.now().difference(now).inMilliseconds;
+    if (debug) print('Audio Write took $elapsed ms.');
     return res;
   }
 }
