@@ -142,7 +142,6 @@ class AudioStreamMixer {
 
   static mixdown() async {
     if (_mixing) return;
-    var now = DateTime.now();
 
     // print('mixdown');
     _mixing = true;
@@ -150,6 +149,7 @@ class AudioStreamMixer {
     final List<int> mixedBuffer = [];
     bool keepMixing = true;
     while (keepMixing) {
+      var now = DateTime.now();
       // make sure at least one of the streams has enough samples
       var longestStreamSamples = 0;
       for (var stream in streams) {
@@ -191,9 +191,9 @@ class AudioStreamMixer {
           keepMixing = true;
         }
       }
+      var elapsed = DateTime.now().difference(now).inMilliseconds;
+      if (debug) print('Mixdown took $elapsed ms.');
     }
-    var elapsed = DateTime.now().difference(now).inMilliseconds;
-    if (debug) print('Mixdown took $elapsed ms.');
 
     _mixing = false;
     // _player.stop();
