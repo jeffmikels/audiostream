@@ -142,6 +142,8 @@ class AudioStreamMixer {
 
   static mixdown() async {
     if (_mixing) return;
+    var now = DateTime.now();
+
     // print('mixdown');
     _mixing = true;
 
@@ -175,7 +177,7 @@ class AudioStreamMixer {
       // don't bother waiting for this, just send the data
       // to the native layer and move on!
       // write(Int16List.fromList(mixedBuffer).buffer.asUint8List());
-      write(mixedBuffer);
+      await write(mixedBuffer);
       mixedBuffer.clear();
 
       // truncate individual stream buffers and check for more data
@@ -190,6 +192,9 @@ class AudioStreamMixer {
         }
       }
     }
+    var elapsed = DateTime.now().difference(now).inMilliseconds;
+    if (debug) print('Mixdown took $elapsed ms.');
+
     _mixing = false;
     // _player.stop();
   }
@@ -202,10 +207,10 @@ class AudioStreamMixer {
     if (debug) print('sending ${samples.length} samples to platform layer');
     try {
       if (Platform.isAndroid) {
-        _channel.invokeMethod('write', Int32List.fromList(samples));
+        await _channel.invokeMethod('write', Int32List.fromList(samples));
         res = true;
       } else if (Platform.isIOS) {
-        res = await _channel.invokeMethod('write', samples);
+        await _channel.invokeMethod('write', samples);
         // _player.writeChunk(bytes);
         // result = true;
       }
