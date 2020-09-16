@@ -65,7 +65,8 @@ class _MyAppState extends State<MyApp> {
     e('initializing player to $sampleRate');
     await AudioStreamMixer.initialize(
       sampleRate: sampleRate,
-      largeBuffer: false,
+      channels: 2,
+      androidBufferBytes: sampleRate * 2 * 2 * 5,
     );
 
     samples = (await rootBundle.load('assets/sample-$sampleRate-s16le.raw'))

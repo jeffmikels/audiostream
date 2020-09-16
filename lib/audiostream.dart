@@ -6,6 +6,11 @@ import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
 
+// we handle mixing in the Dart layer
+// because dart is fast enough and it's
+// easier this way
+// if performance suffers when streams increase,
+// we may have to switch to mixing on the platform side
 class AudioStreamMixer {
   static bool _mixing = false;
   static int sampleRate;
@@ -13,7 +18,6 @@ class AudioStreamMixer {
   static int bufferSamples;
   static int channels;
   static int sampleBits;
-  static bool largeBuffer;
   static List<AudioStream> streams = [];
   static bool initialized = false;
   static bool closed = true;
@@ -31,17 +35,30 @@ class AudioStreamMixer {
   /// Initializes a Platform Audio Player
   /// with the specified rate, bits, channels and buffer values.
   ///
-  /// bufferBytes refers to the amount of memory to allocate on the
-  /// platform side for the audio buffer. Android doesn't document
-  /// the maximum size for the buffer, but experiments have shown that
-  /// buffers longer than 10 seconds can cause intitialization to fail
-  /// set {largeBuffer} to true to automatically use a 10 second buffer
+  /// [bufferBytes] refers to the amount of memory to allocate on the
+  /// local side for the audio buffer.
+  ///
+  /// [androidBufferBytes] refers to the amount to allocate on the
+  /// platform side for the audio buffer on Android devices.
+  /// the android audiotrack.write is a blocking operation while the iOS
+  /// version is not. Therefore, we allow the customization of the android
+  /// audio buffer here. Note: if the buffer is too low, the UI might lag;
+  /// if the buffer is too high, the creation of the Android AudioTrack
+  /// might fail
+  ///
+  /// the android buffer should be a multiple of the local buffer, and
+  /// should be large enough to receive all the data you intend to send
+  /// in any given write operation
+  ///
+  /// Android doesn't document the maximum size for the buffer,
+  /// but experiments indicate that buffers longer than 10 seconds
+  /// can cause intitialization to fail.
   static Future<bool> initialize({
     int sampleRate = 44100,
     int channels = 2,
     int bufferMillis = 0,
     int sampleBits = 16,
-    bool largeBuffer = false,
+    int androidBufferBytes = 0,
   }) async {
     if (!closed) await close();
 
@@ -50,6 +67,7 @@ class AudioStreamMixer {
     print('Channels: $channels');
     print('Bits per Sample: $sampleBits');
     print('Buffer: ${bufferMillis}ms');
+    print('Requested Android Buffer: $androidBufferBytes bytes');
 
     // initialize the streamplayer player
     // await _player.initialize(sampleRate: sampleRate, channels: channels);
@@ -73,19 +91,22 @@ class AudioStreamMixer {
     AudioStreamMixer.sampleRate = sampleRate;
     AudioStreamMixer.sampleBits = sampleBits;
     AudioStreamMixer.channels = channels;
-    AudioStreamMixer.largeBuffer = largeBuffer;
 
-    var maxBufferBytes = sampleRate * channels * (sampleBits ~/ 8) * 10;
-    if (largeBuffer || bufferBytes > maxBufferBytes)
-      bufferBytes = maxBufferBytes;
+    var maxAndroidBufferBytes = sampleRate * channels * (sampleBits ~/ 8) * 10;
 
-    print("Selected Buffer of $bufferBytes bytes");
+    if (androidBufferBytes == 0) androidBufferBytes = bufferBytes * 2;
+    if (androidBufferBytes > maxAndroidBufferBytes)
+      androidBufferBytes = maxAndroidBufferBytes;
+
+    if (Platform.isAndroid) {
+      print("Initializing Android with buffer of $androidBufferBytes bytes");
+    }
 
     try {
       final bool result = await _channel.invokeMethod('initialize', {
         'rate': sampleRate,
         'channels': channels,
-        'bufferBytes': bufferBytes, // ignored on iOS
+        'bufferBytes': androidBufferBytes, // ignored on iOS
       });
       if (result) {
         closed = false;
@@ -152,7 +173,8 @@ class AudioStreamMixer {
 
       // don't bother waiting for this, just send the data
       // to the native layer and move on!
-      write(Int16List.fromList(mixedBuffer).buffer.asUint8List());
+      // write(Int16List.fromList(mixedBuffer).buffer.asUint8List());
+      write(mixedBuffer);
       mixedBuffer.clear();
 
       // truncate individual stream buffers and check for more data
@@ -171,18 +193,18 @@ class AudioStreamMixer {
     // _player.stop();
   }
 
-  /// send raw bytes to the platform audiostream
-  /// bytes should be a Uint8List of 16 bit PCM data
-  static Future<bool> write(Uint8List bytes) async {
+  /// send samples to the platform audiostream
+  static Future<bool> write(List<int> samples) async {
     if (!initialized) throw AudioStreamNotInitialized();
     // var now = DateTime.now();
     bool res = false;
+    print('sending ${samples.length} samples to platform layer');
     try {
       if (Platform.isAndroid) {
-        _channel.invokeMethod('write', bytes);
+        _channel.invokeMethod('write', Int32List.fromList(samples));
         res = true;
       } else if (Platform.isIOS) {
-        res = await _channel.invokeMethod('write', bytes);
+        res = await _channel.invokeMethod('write', samples);
         // _player.writeChunk(bytes);
         // result = true;
       }
@@ -209,6 +231,8 @@ class AudioStream {
 
   void destroy() => AudioStreamMixer.removeStream(this);
 
+  /// Add a list of samples to the local buffer, and trigger the Mixer to
+  /// start a mixdown if it is not already running.
   /// samples should be of the same bit format as [AudioStreamMixer.sampleBits]
   void mix(List<int> samples, {bool delayMixdown = false}) {
     if (!initialized) throw AudioStreamNotInitialized();
