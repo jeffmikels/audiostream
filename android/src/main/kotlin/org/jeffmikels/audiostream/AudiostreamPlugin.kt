@@ -146,7 +146,7 @@ public class AudiostreamPlugin: FlutterPlugin, MethodCallHandler {
     if (!initialized){
       result.error("NOT INITIALIZED", "You must call initialize first", "")
     } else if (audioData is IntArray){
-      println("received ${audioData.size} samples... storing in buffer")
+      // println("received ${audioData.size} samples... storing in buffer")
       if (player.playState != AudioTrack.PLAYSTATE_PLAYING) {
         player.play()
       }
@@ -157,8 +157,8 @@ public class AudiostreamPlugin: FlutterPlugin, MethodCallHandler {
       for (item in audioData) {
         sampleBuffer.add(item.toShort())
       }
-      println("sampleBuffer now has ${sampleBuffer.size} samples")
-      println("triggering player")
+      // println("sampleBuffer now has ${sampleBuffer.size} samples")
+      // println("triggering player")
 
       // currently, this function will block until
       // all data has been written to the audio track
@@ -179,7 +179,7 @@ public class AudiostreamPlugin: FlutterPlugin, MethodCallHandler {
     // this is a sanity check to make this thread safe
     if (bufferPlaying) return
     bufferPlaying = true
-    println("in playBuffer")
+    // println("in playBuffer")
 
     player.play()
     while (sampleBuffer.size > 0) {
